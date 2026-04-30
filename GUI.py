@@ -1,5 +1,4 @@
 # GUI.py
-# ver 1.0.1
 
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, messagebox
