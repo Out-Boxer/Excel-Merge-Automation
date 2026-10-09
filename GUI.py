@@ -11,6 +11,7 @@ import merge_logic  # 분리한 엑셀 병합 로직 파일
 MAX_FILES = 20 # 선택할 수 있는 파일의 최대 개수
 selected_files = [] # 현재 선택된 파일들의 경로(문자열 리스트)를 저장하는 리스트
 gui_queue = queue.Queue() # 스레드 간 안전한 통신을 위한 큐 생성
+merge_thread = None # 종료 요청 시 병합 작업의 실행 여부를 확인하기 위한 스레드
 
 """
 GUI 프로그램에서 blocking이 왜 치명적인가
@@ -192,7 +193,21 @@ def log_message(message): # 로그 영역에 메시지를 추가하는 함수
     log_area.see(tk.END) # 맨 마지막 텍스트가 보이도록 스크롤을 마지막 텍스트가 출력된 위치로 이동
     root.update_idletasks() # 위젯의 크기나 위치 변경 등 화면에 표시되어야 할 변경 사항을 즉시 반영하도록 함
 
+def on_close():
+    if merge_thread is not None and merge_thread.is_alive():
+        messagebox.showwarning(
+            "병합 진행 중",
+            "아직 병합이 진행 중이므로 종료할 수 없습니다.\n"
+            "작업이 완료된 후 종료해 주세요.",
+            parent=root,
+        )
+        return
+
+    root.destroy()
+
+
 def start_merge_thread(): # 메인 병합 함수
+    global merge_thread
     # 파일 저장 경로를 먼저 묻고, 정해지면 스레드를 시작
 
     # 작업 시작 전 파일 목록 유효성 검사
@@ -243,7 +258,7 @@ def start_merge_thread(): # 메인 병합 함수
         target=merge_logic.merge_excel_files, # target에 실행할 함수를 지정
         args=(output_path, selected_files, gui_queue) # target에 지정한 함수의 매개 변수에 전달할 값 지정
     )
-    # 데몬 스레드는 메인 스레드가 종료되면 같이 종료되는 스레드 즉, 프로그램 종료 시 병합 프로세스가 깔끔하게 끝나도록 설정
+    # 데몬 스레드는 프로그램 종료 시 중단되므로 병합 중에는 on_close에서 창 닫기를 막음
     merge_thread.daemon = True # True로 설정하면 메인 프로그램(프로세스)이 종료될 때 이 스레드는 자동으로 강제 종료 
     merge_thread.start() 
 
@@ -253,6 +268,7 @@ def GUI():
 
     # 기본 창 설정
     root = tk.Tk()
+    root.protocol("WM_DELETE_WINDOW", on_close)
     root.title("Excel 파일 병합 프로그램")
     root.geometry("700x550")
     
@@ -336,7 +352,6 @@ def GUI():
     log_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
     
     root.after(100, process_queue) # GUI가 시작된 후 큐 확인 프로세스를 시작
-    
     root.mainloop()
 
 if __name__ == "__main__":

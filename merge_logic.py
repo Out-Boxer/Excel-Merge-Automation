@@ -1,13 +1,35 @@
 # merge_logic.py 
 # ver 1.0.1
 
-import openpyxl # Excel(.xlsx) 파일을 읽고 쓰는 라이브러리
+import openpyxl
 from openpyxl.utils.cell import get_column_letter # 열 번호(1,2,3...)를 엑셀 열 문자('A','B',...)로 변환하는 함수를 가져옵니다
 from openpyxl.utils.exceptions import InvalidFileException # 특정 예외 처리를 위해 임포트
 from copy import copy
 import os
 import zipfile # openpyxl 라이브러리는 암호가 걸린 파일을 열 수 없기 때문에 암호가 걸린 파일에 대한 예외 처리를 하기 위한 라이브러리
-import gc # 메모리 누수 방지를 위해 가바지 컬렉션을 수동으로 조작하기 위해 사용(동일 파일 병합 기준 547MB -> 520MB로 감소함)
+import gc # 가바지 컬렉션을 수동으로 조작하여 메모리 누수 방지를 위해 사용(동일 파일 병합 기준 547MB -> 520MB로 감소함)
+
+def has_all_outer_borders(border): # 좌/우/상/하 네 방향에 실제 테두리 선 스타일이 있는지 확인
+    # all 함수는 안에 들어온 값들이 전부 참인지 검사하는 함수(여기서는 상하좌우의 테두리가 빈 곳이 있는지 체크하는 용도)
+    return all(
+        getattr(getattr(border, side_name, None), "style", None) # 테두리가 하나라도 비면 False 반환
+        for side_name in ("left", "right", "top", "bottom")
+    )
+
+def get_cached_border(cell, border_cache): # 엑셀 테두리 메뉴 중 하나인 "모든 테두리" 서식만 캐싱하고, 그 외 테두리는 기존처럼 복사
+    if not has_all_outer_borders(cell.border):
+        return copy(cell.border)
+
+    border_id = getattr(cell._style, "borderId", None)
+    if border_id is None:
+        return copy(cell.border)
+
+    cached_border = border_cache.get(border_id)
+    if cached_border is None:
+        cached_border = copy(cell.border)
+        border_cache[border_id] = cached_border
+
+    return cached_border
 
 def merge_excel_files(output_path, selected_files, gui_queue): # 인자로 필요한 변수들 GUI.py로부터 받음
     gc.disable() # 메모리 사용량 최적화를 위한 자동 가비지 컬렉션 비활성화 (메모리 수거 시점 최적화 목적)
@@ -26,6 +48,7 @@ def merge_excel_files(output_path, selected_files, gui_queue): # 인자로 필�
             try: 
                 gui_queue.put(('log', f"\n[{os.path.basename(file_path)}] 파일 처리 중..."))
                 load_file_wb = openpyxl.load_workbook(file_path) # 선택한 파일들 불러오기
+                border_cache = {} # 같은 원본 파일 안에서 반복되는 "모든 테두리" 서식을 재사용
 
                 for sheet_name in load_file_wb.sheetnames: 
                     current_sheet = load_file_wb[sheet_name] # 현재 처리 중인 시트를 current_sheet 변수에 대입
@@ -54,7 +77,7 @@ def merge_excel_files(output_path, selected_files, gui_queue): # 인자로 필�
                                 # 기존 셀 스타일(서식)을 복제할 때는 copy 함수를 사용한다
                                 # 원하는 스타일만 선택해서 copy() 함수에 전달하면 해당 스타일만 카피할 수 있다
                                 target_cell.font = copy(cell.font) # 현재 선택된 셀(target_cell.font)에 원본 셀의 폰트(cell.font)를 복사한다
-                                target_cell.border = copy(cell.border)
+                                target_cell.border = get_cached_border(cell, border_cache)
                                 target_cell.fill = copy(cell.fill)
                                 target_cell.number_format = cell.number_format
                                 target_cell.protection = copy(cell.protection)
