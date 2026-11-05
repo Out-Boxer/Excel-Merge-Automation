@@ -32,7 +32,7 @@ Microsoft Excel의 `.xlsx` 파일을 기준으로 개발한 프로그램입니�
 - 민원 전화가 왔는데 엑셀 로딩 이슈로 PC 사용 어려움을 겪는 경우 다수
 
 # 프로그램 실행 이미지
-<img width="515" height="436" alt="사용 이미지" src="https://github.com/user-attachments/assets/f33497fe-f555-43ae-a763-40954dc8a875" />
+<img width="531" height="441" alt="프로그램 실행 이미지" src="https://github.com/user-attachments/assets/d3034112-f24e-4018-a648-4559e7373fd5" />
 
 # 사용한 기술
 - 당시 최신 기술이었던 웹 제미나이 2.5 pro 바이브 코딩(제작 당시) 
